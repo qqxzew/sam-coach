@@ -9,6 +9,9 @@
   },
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "test": "npm test -w server"
+    "test": "npm test -w server",
+    "dev:server": "npm run dev -w server",
+    "start": "npm start -w server",
+    "precompute": "npm run precompute -w server"
   }
 }

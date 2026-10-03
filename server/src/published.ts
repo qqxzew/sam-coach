@@ -32,7 +32,11 @@ export type PublishedValidator = {
 
 export type PublishedResults = {
   winningTotalPmpe: number
-  auctionData: { epoch: number; validators: PublishedValidator[] }
+  auctionData: {
+    epoch: number
+    validators: PublishedValidator[]
+    stakeAmounts: { networkTotalSol: number; marinadeSamTvlSol: number }
+  }
 }
 
 export function loadPublishedResults(auctionDir: string = DEFAULT_AUCTION_DIR): PublishedResults {
@@ -50,4 +54,47 @@ export function isBondShort(v: PublishedValidator, winningTotalPmpe: number): bo
     v.bondBalanceSol < MIN_BOND_SOL &&
     v.auctionStake.marinadeSamTargetSol === 0
   )
+}
+
+export type EpochSummary = {
+  auctionId: string
+  epoch: number
+  scoredValidators: number
+  samEligible: number
+  withBondAccount: number
+  withPositiveBond: number
+  winners: number
+  winnersCappedByWant: number
+  winnersCappedByBond: number
+  medianWinnerStakeSol: number
+  winningTotalPmpe: number
+  marinadeSamStakeSol: number
+  bondShortValidators: number
+  minBondSol: number
+}
+
+/** CLAUDE.md §3 numbers, computed from the published results. */
+export function epochSummary(results: PublishedResults, auctionId: string): EpochSummary {
+  const { validators, epoch, stakeAmounts } = results.auctionData
+  const winners = validators.filter(v => v.auctionStake.marinadeSamTargetSol > 0)
+  const winnerStakes = winners.map(v => v.auctionStake.marinadeSamTargetSol).sort((a, b) => a - b)
+  const mid = winnerStakes.length >> 1
+  const cappedBy = (type: string) => winners.filter(v => v.lastCapConstraint?.constraintType === type).length
+  return {
+    auctionId,
+    epoch,
+    scoredValidators: validators.length,
+    samEligible: validators.filter(v => v.samEligible).length,
+    withBondAccount: validators.filter(v => v.bondBalanceSol !== null).length,
+    withPositiveBond: validators.filter(v => (v.bondBalanceSol ?? 0) > 0).length,
+    winners: winners.length,
+    winnersCappedByWant: cappedBy('WANT'),
+    winnersCappedByBond: cappedBy('BOND'),
+    medianWinnerStakeSol:
+      winnerStakes.length % 2 ? winnerStakes[mid] : (winnerStakes[mid - 1] + winnerStakes[mid]) / 2,
+    winningTotalPmpe: results.winningTotalPmpe,
+    marinadeSamStakeSol: stakeAmounts.marinadeSamTvlSol,
+    bondShortValidators: validators.filter(v => isBondShort(v, results.winningTotalPmpe)).length,
+    minBondSol: MIN_BOND_SOL,
+  }
 }

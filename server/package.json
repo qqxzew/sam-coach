@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "precompute": "tsx src/precompute.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -11,5 +14,8 @@
     "tsx": "^4.19.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.0"
+  },
+  "dependencies": {
+    "fastify": "^5.12.5"
   }
 }

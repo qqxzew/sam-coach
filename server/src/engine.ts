@@ -41,6 +41,8 @@ export type WhatIfResult = {
   winningTotalPmpe: number
 }
 
+export const NO_BOND_ACCOUNT_MESSAGE = 'No bond account - create one to join SAM'
+
 export type WhatIfErrorCode = 'UNKNOWN_VALIDATOR' | 'NO_BOND_ACCOUNT' | 'INVALID_INPUT'
 
 export class WhatIfError extends Error {
@@ -132,19 +134,26 @@ export class AuctionEngine {
     return this.source.validators.validators.some(v => v.vote_account === vote)
   }
 
+  hasBondAccount(vote: string): boolean {
+    return this.source.bonds.bonds.some(b => b.vote_account === vote)
+  }
+
   whatIf(input: WhatIfInput): Promise<WhatIfResult> {
     const { vote, bondSol, bidCpmpe, maxStakeWantedSol } = input
     assertAmount('bondSol', bondSol)
     assertAmount('bidCpmpe', bidCpmpe)
     assertAmount('maxStakeWantedSol', maxStakeWantedSol)
     if (!this.hasValidator(vote)) {
-      throw new WhatIfError('UNKNOWN_VALIDATOR', `Validator ${vote} is not in the epoch ${this.epochLabel()} auction`)
+      throw new WhatIfError('UNKNOWN_VALIDATOR', `Validator ${vote} is not in the epoch ${this.auctionId} auction`)
+    }
+    const unchanged = bondSol === undefined && bidCpmpe === undefined && maxStakeWantedSol === undefined
+    if (!unchanged && !this.hasBondAccount(vote)) {
+      throw new WhatIfError('NO_BOND_ACCOUNT', NO_BOND_ACCOUNT_MESSAGE)
     }
 
     const key = [vote, bondSol, bidCpmpe, maxStakeWantedSol].join('|')
     let result = this.cache.get(key)
     if (!result) {
-      const unchanged = bondSol === undefined && bidCpmpe === undefined && maxStakeWantedSol === undefined
       result = (unchanged ? this.baseline() : this.run(this.patchBonds(input))).then(r => extract(r, vote))
       result.catch(() => this.cache.delete(key))
       this.cache.set(key, result)
@@ -156,10 +165,7 @@ export class AuctionEngine {
     const bonds = this.source.bonds.bonds
     const index = bonds.findIndex(b => b.vote_account === vote)
     if (index < 0) {
-      throw new WhatIfError(
-        'NO_BOND_ACCOUNT',
-        `Validator ${vote} has no bond account, so there is no bonds.json entry to change`,
-      )
+      throw new WhatIfError('NO_BOND_ACCOUNT', NO_BOND_ACCOUNT_MESSAGE)
     }
     const bond: RawBondDto = { ...bonds[index] }
     if (bondSol !== undefined) {
@@ -178,7 +184,8 @@ export class AuctionEngine {
     return { ...this.source.bonds, bonds: patched }
   }
 
-  private epochLabel(): string {
+  /** Auction folder name, e.g. `1048.46261`. */
+  get auctionId(): string {
     return path.basename(path.dirname(this.config.inputsCacheDirPath ?? ''))
   }
 }
