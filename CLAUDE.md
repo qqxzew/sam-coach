@@ -52,8 +52,17 @@ Later (until 2026-10-12) we may extend it for Colosseum. Build only section 2 no
    the message. The live missed-stake list is computed on first request (blocks ~30 s) and cached in the run folder.
    `LIVE=off` disables live entirely.
 
+8. **Telegram alerts** (done) — long-polling bot (no webhook), only when `TELEGRAM_BOT_TOKEN` is set in `.env`
+   (git-ignored; `.env.example` committed; the token is redacted from every error/log). Commands: `/watch <vote>`,
+   `/unwatch [vote]`, `/status` (stake, what limits you, offer vs clearing, bond health), `/help`.
+   Subscriptions + last snapshot per watch in `server/.cache/telegram-subscriptions.json`. After each live refresh
+   (new auction id) a message is sent only if something changed: stake lost (> 1 SOL), binding constraint changed,
+   offer fell below the clearing price, or bond went low by ds-sam's own thresholds — `bondSamHealth < 1`
+   (priority unstake, ARCHITECTURE.md "Health") or `bondGoodForNEpochs < 0` (bond risk fee due, constraints.ts;
+   null = infinite cover). With the bot on, the server fetches live data in the background and re-checks hourly.
+
 ### Out of scope (do NOT build now)
-Jito, SFDP, other pools · Telegram alerts · badges · user accounts, login, payments ·
+Jito, SFDP, other pools · badges · user accounts, login, payments ·
 live epoch updates · net-revenue / profit estimates (we only show stake and bid cost, see §6).
 
 ### Hard rules
@@ -249,6 +258,10 @@ Extensions:
    no fetch before slot 30,000, cached data served if the epoch check fails, clear 503 + fallback to 1048.
    Network test `npm run test:live` — the live run completes with winners > 0 and winningTotalPmpe > 0.
    `npm test` stays offline.
+
+9. Telegram (server/test/telegram.test.ts, fake Bot API): /watch, /status, /unwatch with the JSON store;
+   alert rules incl. ds-sam bond thresholds; only changed validators get a message, once per new auction;
+   the token never appears in errors or logs; `.env` is git-ignored.
 
 ## 10. Demo script (for the pitch)
 

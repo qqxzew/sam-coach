@@ -1,3 +1,5 @@
+import './env.js'
+
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,6 +12,7 @@ import { AuctionEngine } from './engine.js'
 import { LiveService } from './live.js'
 import { DEFAULT_CACHE_DIR, loadOrComputeMissed } from './missed.js'
 import { loadPublishedResults } from './published.js'
+import { AlertBot, SubscriptionStore, telegramApi } from './telegram.js'
 
 const port = Number(process.env.PORT ?? 3001)
 const host = process.env.HOST ?? '127.0.0.1'
@@ -42,11 +45,30 @@ if (fs.existsSync(webDist)) {
 }
 await app.listen({ port, host })
 
-// Once live data has been used, check hourly for a new epoch (same cadence as Marinade's scheduler).
+// Telegram alerts: only with a token in .env. The token is never logged.
+const token = process.env.TELEGRAM_BOT_TOKEN?.trim()
+const bot = token
+  ? new AlertBot({
+      api: telegramApi(token),
+      store: new SubscriptionStore(path.join(DEFAULT_CACHE_DIR, 'telegram-subscriptions.json')),
+      current: () => (live ? live.get().catch(() => offline) : Promise.resolve(offline)),
+    })
+  : null
+if (bot) {
+  live?.on('refreshed', dataset => {
+    bot.onRefresh(dataset).then(n => n && app.log.info(`telegram: ${n} alert(s) sent`), () => {})
+  })
+  bot.start()
+  if (live) live.get().catch(() => {}) // alerts need live data; in the background, the UI never waits for it
+} else {
+  app.log.info('TELEGRAM_BOT_TOKEN not set: Telegram alerts off')
+}
+
+// Once live data is in use (UI or bot), check hourly for a new epoch (same cadence as Marinade's scheduler).
 if (live) {
   setInterval(
     () => {
-      if (live.status().state !== 'idle') live.get().catch(() => {})
+      if (bot || live.status().state !== 'idle') live.get().catch(() => {})
     },
     60 * 60 * 1000,
   ).unref()

@@ -26,9 +26,17 @@ Live data: the UI switch "Live (current epoch)" makes the server fetch the curre
 (once per epoch, cached in `server/.cache/live/`). Epoch 1048 stays the default and needs no internet.
 Set `LIVE=off` to disable live data, `SOLANA_RPC_URL` to use another RPC for the epoch check.
 
+Telegram alerts: copy `.env.example` to `.env` and set `TELEGRAM_BOT_TOKEN` (from @BotFather). Without a token
+the app runs normally without the bot. Commands: `/watch <vote account>`, `/unwatch`, `/status`.
+
 ## Layout
 
 - `server/src/engine.ts`: loads the epoch inputs once and runs `DsSamSDK` in-process with one `bonds.json` entry changed
-- `server/src/app.ts`: Fastify endpoints `/api/epoch`, `/api/validator/:vote`, `/api/missed`, `POST /api/whatif`
+- `server/src/app.ts`: Fastify endpoints `/api/epoch`, `/api/validator/:vote`, `/api/missed`, `/api/plan/:vote`,
+  `/api/league`, `/api/live/status`, `POST /api/whatif` (all take `?data=live`)
 - `server/src/eligibility.ts`: why a validator is not SAM-eligible (mirrors `ds-sam` gates, checked against the auction in tests)
-- `web/`: Vite + React UI, screens A (home, missed-stake list) and B (validator, what-if)
+- `server/src/plan.ts`: action plan (bond / bid / maxStakeWanted moves, each replayed)
+- `server/src/league.ts`: league of SAM-eligible validators vs the previous epoch
+- `server/src/live.ts`: live epoch via ds-sam's API loading, cached once per epoch
+- `server/src/telegram.ts`: Telegram alert bot (long polling)
+- `web/`: Vite + React UI, screens A (home, missed-stake list), B (validator, plan, what-if), C (league)
