@@ -1,3 +1,8 @@
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+import fastifyStatic from '@fastify/static'
+
 import { buildApp } from './app.js'
 import { AuctionEngine } from './engine.js'
 import { loadOrComputeMissed } from './missed.js'
@@ -16,4 +21,12 @@ const missed = loadOrComputeMissed(engine, published, engine.auctionId, undefine
 missed.catch(error => console.error('missed-stake list failed', error))
 
 const app = await buildApp({ engine, published, missed }, { logger: { level: process.env.LOG_LEVEL ?? 'info' } })
+
+// Serve the built UI (npm run build) from the same origin, so the demo is one offline process.
+const webDist = fileURLToPath(new URL('../../web/dist/', import.meta.url))
+if (fs.existsSync(webDist)) {
+  await app.register(fastifyStatic, { root: webDist })
+} else {
+  app.log.warn(`No UI build at ${webDist}; run "npm run build" or use the Vite dev server`)
+}
 await app.listen({ port, host })

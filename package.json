@@ -2,16 +2,19 @@
   "name": "sam-coach",
   "private": true,
   "workspaces": [
-    "server"
+    "server",
+    "web"
   ],
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "test": "npm test -w server",
-    "dev:server": "npm run dev -w server",
+    "build": "npm run build -w web",
     "start": "npm start -w server",
-    "precompute": "npm run precompute -w server"
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "precompute": "npm run precompute -w server",
+    "test": "npm test -w server"
   }
 }
