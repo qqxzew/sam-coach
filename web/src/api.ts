@@ -58,6 +58,21 @@ export type WhatIfResult = {
   winningTotalPmpe: number
 }
 
+export type Move = {
+  kind: 'BOND_MIN' | 'BOND_UNCAP' | 'BOND_IDEAL' | 'BID' | 'WANT'
+  sentence: string
+  input: { bondSol?: number; bidCpmpe?: number; maxStakeWantedSol?: number }
+  stakeSol: number
+  stakeGainSol: number
+  constraint: string | null
+  capitalLockedSol: number
+  costPerEpochDeltaSol: number
+  rankedBy: 'capital' | 'costPerEpoch'
+  stakePerSol: number | null
+}
+
+export type ActionPlan = { vote: string; moves: Move[]; note: string | null }
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -86,6 +101,7 @@ export const api = {
   epoch: () => request<EpochSummary>('/api/epoch'),
   missed: () => request<MissedList>('/api/missed'),
   validator: (vote: string) => request<Validator>(`/api/validator/${encodeURIComponent(vote)}`),
+  plan: (vote: string) => request<ActionPlan>(`/api/plan/${encodeURIComponent(vote)}`),
   whatIf: (input: WhatIfInput) =>
     request<WhatIfResult>('/api/whatif', {
       method: 'POST',

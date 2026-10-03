@@ -2,9 +2,11 @@ import Fastify from 'fastify'
 
 import { eligibilityExplainer } from './eligibility.js'
 import { WhatIfError } from './engine.js'
+import { buildActionPlan } from './plan.js'
 import { epochSummary, MIN_BOND_SOL } from './published.js'
 
 import type { AuctionEngine, WhatIfErrorCode, WhatIfInput } from './engine.js'
+import type { ActionPlan } from './plan.js'
 import type { MissedList } from './missed.js'
 import type { PublishedResults } from './published.js'
 import type { FastifyServerOptions } from 'fastify'
@@ -106,6 +108,22 @@ export async function buildApp({ engine, published, missed }: AppDeps, options: 
       unprotectedStakeSol: p.unprotectedStakeSol,
       auction,
     }
+  })
+
+  // A plan is several auction replays (~1-3 s); keep it per vote.
+  const plans = new Map<string, Promise<ActionPlan>>()
+  app.get<{ Params: { vote: string } }>('/api/plan/:vote', async request => {
+    const vote = request.params.vote.trim()
+    if (!engine.hasValidator(vote)) {
+      throw new WhatIfError('UNKNOWN_VALIDATOR', `Vote account ${vote} was not scored in this auction.`)
+    }
+    let plan = plans.get(vote)
+    if (!plan) {
+      plan = buildActionPlan(engine, vote)
+      plan.catch(() => plans.delete(vote))
+      plans.set(vote, plan)
+    }
+    return plan
   })
 
   app.get('/api/missed', async () => {

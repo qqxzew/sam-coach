@@ -39,6 +39,16 @@ export type WhatIfResult = {
   constraint: AuctionConstraintType | null
   bidCostSolPerEpoch: number
   winningTotalPmpe: number
+  /** Bond terms of this replay (ds-sam constraints.ts bondStakeCapSam). */
+  bond: {
+    minBondPmpe: number
+    idealBondPmpe: number
+    unprotectedStakeCapSol: number
+    marinadeActivatedStakeSol: number
+    /** null = infinite (no Marinade stake or no expected bid). */
+    bondGoodForNEpochs: number | null
+    bondSamHealth: number
+  }
 }
 
 export const NO_BOND_ACCOUNT_MESSAGE = 'No bond account - create one to join SAM'
@@ -205,5 +215,13 @@ function extract(result: AuctionResult, vote: string): WhatIfResult {
     constraint: v.lastCapConstraint?.constraintType ?? null,
     bidCostSolPerEpoch: (stakeSol * v.revShare.auctionEffectiveBidPmpe) / 1000,
     winningTotalPmpe: result.winningTotalPmpe,
+    bond: {
+      minBondPmpe: v.minBondPmpe,
+      idealBondPmpe: v.idealBondPmpe,
+      unprotectedStakeCapSol: v.unprotectedStakeCapSol,
+      marinadeActivatedStakeSol: v.marinadeActivatedStakeSol,
+      bondGoodForNEpochs: Number.isFinite(v.bondGoodForNEpochs) ? v.bondGoodForNEpochs : null,
+      bondSamHealth: v.bondSamHealth,
+    },
   }
 }

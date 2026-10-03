@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api, ApiError } from '../api'
+import { ActionPlan } from './ActionPlan'
 import { constraintText, ESTIMATE_LABEL, fmtPmpe, fmtSol, fmtSol2 } from '../format'
 
 import type { Validator, WhatIfResult } from '../api'
@@ -58,7 +59,10 @@ export function ValidatorPage({ vote }: { vote: string }) {
       </section>
 
       <div className="validator-grid">
-        <StatusCard v={validator} />
+        <div className="stack">
+          <StatusCard v={validator} />
+          <ActionPlan vote={validator.voteAccount} />
+        </div>
         <WhatIfPanel v={validator} />
       </div>
     </>

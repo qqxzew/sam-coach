@@ -20,6 +20,19 @@ Later (until 2026-10-12) we may extend it for Colosseum. Build only section 2 no
 3. **What-if** — change bond / bid / maxStakeWanted → re-run the real Marinade auction → show new stake.
 4. **Missed-stake list** — all validators whose offer clears the auction but who got 0 stake because of the bond. Sorted by stake they would get with a 7 SOL bond (precompute).
 
+### Extensions (after the Wednesday core; build in this order)
+5. **Action plan** (page B, done) — candidate moves, each replayed with the what-if engine:
+   bond to 7 SOL · bond at which BOND stops binding · ideal bond (idealBondEpochs) · bid just above the
+   clearing price (only if offer < clearing) · maxStakeWanted up to the stake reachable with no WANT limit
+   (only if constraint is WANT, rounded up to 1,000 SOL). One sentence per move
+   ("Top up bond by X SOL → +Y SOL stake"). Moves with < 1 SOL gain dropped, max 5.
+   Money kept separate, never added: **capital locked** (bond top-up, stays the validator's) and
+   **cost per epoch** (change of bid charged, §6). Ranking = stake gained per SOL of the move's own money
+   (bond moves per SOL locked, bid/want moves per SOL of cost per epoch); moves with 0 own money first.
+   Bond threshold = exact mirror of ds-sam `bondStakeCapSam` + `clipBondStakeCap` (server/src/plan.ts
+   `bondCap`), inverted by bisection — a closed form is wrong when unprotected stake is not saturated or in
+   the 5.6–7 SOL hysteresis band.
+
 ### Out of scope (do NOT build now)
 Jito, SFDP, other pools · Telegram alerts · League / badges · user accounts, login, payments ·
 live epoch updates · net-revenue / profit estimates (we only show stake and bid cost, see §6).
@@ -187,7 +200,8 @@ Plain, clean UI. Mobile-friendly. No dark patterns, no wallet buttons.
   - `GET /api/epoch` → summary numbers (§3)
   - `GET /api/validator/:vote` → fields from `results.json`
   - `GET /api/missed` → bond-short list (precomputed at startup or by a script)
-  - `POST /api/whatif {vote, bondSol?, bidCpmpe?, maxStakeWantedSol?}` → `{stakeSol, constraint, bidCostSolPerEpoch, winningTotalPmpe}`
+  - `POST /api/whatif {vote, bondSol?, bidCpmpe?, maxStakeWantedSol?}` → `{stakeSol, constraint, bidCostSolPerEpoch, winningTotalPmpe, bond{...}}`
+  - `GET /api/plan/:vote` → `{moves[{kind, sentence, input, stakeGainSol, constraint, capitalLockedSol, costPerEpochDeltaSol, rankedBy, stakePerSol}], note}` (extension 5)
 - Frontend: Vite + React. One page app, screens A and B.
 - Run locally; deploy later. Team dev machines are Windows (PowerShell): avoid bash-only steps in the app itself; the bash script above is a reference only.
 
@@ -198,6 +212,13 @@ Plain, clean UI. Mobile-friendly. No dark patterns, no wallet buttons.
 3. `/api/missed` returns 95 validators.
 4. Entering any of the 676 vote accounts opens page B without errors; unknown account → friendly message.
 5. Full demo flow works offline from local files: home → pick a bond-short validator → see 0 stake → set bond 7 → see ~24k SOL.
+
+Extensions:
+
+6. Action plan: `bondCap` reproduces the published `bondSamStakeCapSol` for every validator with a bond;
+   49DJ plan has "Top up bond by 7.00 SOL → +24,239 SOL stake" and a bond move after which BOND no longer binds;
+   a WANT-capped winner gets a want move; an offer below clearing gets a bid move that clears it;
+   ≤ 5 moves, all with gain ≥ 1 SOL, sorted by stake per own SOL. (automated, server/test/plan.test.ts)
 
 ## 10. Demo script (for the pitch)
 
