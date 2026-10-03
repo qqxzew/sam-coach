@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url)
 const SDK_DIST = '../../vendor/ds-sam/packages/ds-sam-sdk/dist/src'
 
 const sdk = require(`${SDK_DIST}/index.js`) as Sdk
-export const { DsSamSDK, InputsSource, isInflationCommissionUnresolved } = sdk
+export const { DsSamSDK, InputsSource, isInflationCommissionUnresolved, loadSamConfig } = sdk
 // DataProvider is not re-exported from the SDK index.
 export const { DataProvider } = require(`${SDK_DIST}/data-provider/data-provider.js`) as DataProviderModule
 

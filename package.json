@@ -15,6 +15,7 @@
     "dev:server": "npm run dev -w server",
     "dev:web": "npm run dev -w web",
     "precompute": "npm run precompute -w server",
-    "test": "npm test -w server"
+    "test": "npm test -w server",
+    "test:live": "npm run test:live -w server"
   }
 }

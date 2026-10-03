@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../api'
-import { ESTIMATE_LABEL, fmtSol, fmtSol2 } from '../format'
+import { useEstimateLabel } from '../data'
+import { fmtSol, fmtSol2 } from '../format'
 
 import type { ActionPlan as Plan, Move } from '../api'
 
@@ -25,6 +26,7 @@ const KIND_LABEL: Record<Move['kind'], string> = {
 export function ActionPlan({ vote }: { vote: string }) {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const estimateLabel = useEstimateLabel()
 
   useEffect(() => {
     api.plan(vote).then(setPlan, e => setError(e.message))
@@ -90,7 +92,7 @@ export function ActionPlan({ vote }: { vote: string }) {
         </ol>
       )}
       <p className="fine-print">
-        {ESTIMATE_LABEL}. Each move changes one setting and re-runs Marinade's auction; ranked by stake gained per
+        {estimateLabel}. Each move changes one setting and re-runs Marinade's auction; ranked by stake gained per
         SOL of that move's own money. Capital and cost are different money and are never added together.
       </p>
     </section>

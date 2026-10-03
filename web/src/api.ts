@@ -1,5 +1,15 @@
 // Mirrors server/src/app.ts responses.
 
+export type DataKind = 'offline' | 'live'
+
+/** Which auction the API calls read: epoch 1048 from files (default) or the live epoch. Set by DataProvider. */
+let dataKind: DataKind = 'offline'
+export const setDataKind = (kind: DataKind) => {
+  dataKind = kind
+}
+const withData = (url: string, kind: DataKind = dataKind) =>
+  kind === 'live' ? `${url}${url.includes('?') ? '&' : '?'}data=live` : url
+
 export type EpochSummary = {
   auctionId: string
   epoch: number
@@ -10,6 +20,8 @@ export type EpochSummary = {
   marinadeSamStakeSol: number
   bondShortValidators: number
   minBondSol: number
+  kind: DataKind
+  fetchedAt: string | null
 }
 
 export type MissedEntry = {
@@ -112,13 +124,13 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  epoch: () => request<EpochSummary>('/api/epoch'),
-  missed: () => request<MissedList>('/api/missed'),
-  validator: (vote: string) => request<Validator>(`/api/validator/${encodeURIComponent(vote)}`),
-  league: () => request<League>('/api/league'),
-  plan: (vote: string) => request<ActionPlan>(`/api/plan/${encodeURIComponent(vote)}`),
+  epoch: (kind?: DataKind) => request<EpochSummary>(withData('/api/epoch', kind)),
+  missed: () => request<MissedList>(withData('/api/missed')),
+  validator: (vote: string) => request<Validator>(withData(`/api/validator/${encodeURIComponent(vote)}`)),
+  league: () => request<League>(withData('/api/league')),
+  plan: (vote: string) => request<ActionPlan>(withData(`/api/plan/${encodeURIComponent(vote)}`)),
   whatIf: (input: WhatIfInput) =>
-    request<WhatIfResult>('/api/whatif', {
+    request<WhatIfResult>(withData('/api/whatif'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(input),

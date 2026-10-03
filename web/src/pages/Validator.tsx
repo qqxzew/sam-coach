@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api, ApiError } from '../api'
 import { ActionPlan } from './ActionPlan'
-import { constraintText, ESTIMATE_LABEL, fmtPmpe, fmtSol, fmtSol2 } from '../format'
+import { useEstimateLabel } from '../data'
+import { constraintText, fmtPmpe, fmtSol, fmtSol2 } from '../format'
 
 import type { Validator, WhatIfResult } from '../api'
 
@@ -25,7 +26,7 @@ export function ValidatorPage({ vote }: { vote: string }) {
         </h1>
         <p className="lede">
           {error.code === 'UNKNOWN_VALIDATOR'
-            ? `It was not among the 676 validators Marinade scored in epoch 1048. Check that you pasted the vote account (not the identity key).`
+            ? `It was not among the validators Marinade scored in this auction. Check that you pasted the vote account (not the identity key).`
             : error.message}
         </p>
         <p className="mono break muted">{vote}</p>
@@ -282,7 +283,7 @@ function WhatIfPanel({ v }: { v: Validator }) {
 
       <div aria-live="polite">
         {error && <p className="notice notice-error">{error}</p>}
-        {result && <WhatIfOutcome before={v.stakeSol} result={result} />}
+        {result && <WhatIfOutcome before={v.stakeSol} result={result} epoch={v.auction.epoch} />}
       </div>
 
       <PresetTable
@@ -318,8 +319,9 @@ function presetRows(v: Validator): Preset[] {
   return [current, ...PRESET_BONDS.map(bondSol => ({ bondSol, label: `${bondSol} SOL`, result: null }))]
 }
 
-function WhatIfOutcome({ before, result }: { before: number; result: WhatIfResult }) {
+function WhatIfOutcome({ before, result, epoch }: { before: number; result: WhatIfResult; epoch: number }) {
   const shown = useCountUp(result.stakeSol)
+  const estimateLabel = useEstimateLabel()
   const delta = result.stakeSol - before
   return (
     <div className="outcome">
@@ -332,7 +334,7 @@ function WhatIfOutcome({ before, result }: { before: number; result: WhatIfResul
         <span className="big-unit">SOL</span>
       </div>
       <p className={`delta ${delta > 0 ? 'delta-up' : delta < 0 ? 'delta-down' : ''}`}>
-        {delta === 0 ? 'No change' : `${delta > 0 ? '+' : '−'}${fmtSol(Math.abs(delta))} SOL vs epoch 1048`}
+        {delta === 0 ? 'No change' : `${delta > 0 ? '+' : '−'}${fmtSol(Math.abs(delta))} SOL vs epoch ${epoch} result`}
       </p>
       <dl className="facts facts-tight">
         <div>
@@ -354,7 +356,7 @@ function WhatIfOutcome({ before, result }: { before: number; result: WhatIfResul
           </dd>
         </div>
       </dl>
-      <p className="fine-print">{ESTIMATE_LABEL}.</p>
+      <p className="fine-print">{estimateLabel}.</p>
     </div>
   )
 }
@@ -368,6 +370,7 @@ function PresetTable({
   onPick: (bondSol: number | null) => void
   disabled: boolean
 }) {
+  const estimateLabel = useEstimateLabel()
   const max = Math.max(...presets.map(p => p.result?.stakeSol ?? 0), 1)
   return (
     <div className="presets">
@@ -417,7 +420,7 @@ function PresetTable({
           ))}
         </tbody>
       </table>
-      <p className="fine-print">{ESTIMATE_LABEL}. Bid and maxStakeWanted unchanged.</p>
+      <p className="fine-print">{estimateLabel}. Bid and maxStakeWanted unchanged.</p>
     </div>
   )
 }

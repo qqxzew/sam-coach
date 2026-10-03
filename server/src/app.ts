@@ -1,22 +1,18 @@
 import Fastify from 'fastify'
 
-import { eligibilityExplainer } from './eligibility.js'
 import { WhatIfError } from './engine.js'
-import { buildLeague } from './league.js'
-import { buildActionPlan } from './plan.js'
-import { epochSummary, MIN_BOND_SOL } from './published.js'
+import { LiveUnavailableError } from './live.js'
 
-import type { AuctionEngine, WhatIfErrorCode, WhatIfInput } from './engine.js'
-import type { ActionPlan } from './plan.js'
-import type { MissedList } from './missed.js'
-import type { PublishedResults } from './published.js'
+import type { Dataset } from './dataset.js'
+import type { WhatIfErrorCode, WhatIfInput } from './engine.js'
+import type { LiveService } from './live.js'
 import type { FastifyServerOptions } from 'fastify'
 
 export type AppDeps = {
-  engine: AuctionEngine
-  published: PublishedResults
-  /** Resolves once the missed-stake list is loaded from cache or computed. */
-  missed: Promise<MissedList>
+  /** Epoch 1048 from files: the default, works with no internet. */
+  offline: Dataset
+  /** Current epoch via ds-sam's API loading; absent = live disabled. */
+  live?: LiveService
 }
 
 const ERROR_STATUS: Record<WhatIfErrorCode, number> = {
@@ -38,27 +34,25 @@ const whatIfBodySchema = {
   },
 } as const
 
-export async function buildApp({ engine, published, missed }: AppDeps, options: FastifyServerOptions = {}) {
+type DataQuery = { Querystring: { data?: string } }
+
+export async function buildApp({ offline, live }: AppDeps, options: FastifyServerOptions = {}) {
   // No type coercion: a JSON null must not silently become a 0 SOL bond.
   const app = Fastify({ ajv: { customOptions: { coerceTypes: false } }, ...options })
 
-  const auctionId = engine.auctionId
-  const summary = epochSummary(published, auctionId)
-  const baseline = await engine.baseline()
-  const explain = eligibilityExplainer(baseline, engine.config)
-  const replayed = new Map(baseline.auctionData.validators.map(v => [v.voteAccount, v]))
-  const publishedByVote = new Map(published.auctionData.validators.map(v => [v.voteAccount, v]))
-  const auction = {
-    auctionId,
-    epoch: summary.epoch,
-    winningTotalPmpe: published.winningTotalPmpe,
-    minBondSol: MIN_BOND_SOL,
-    minMaxStakeWantedSol: engine.config.minMaxStakeWanted,
+  /** `?data=live` selects the live epoch; anything else is epoch 1048 from files. */
+  const pick = async (query: { data?: string }): Promise<Dataset> => {
+    if (query.data !== 'live') return offline
+    if (!live) throw new LiveUnavailableError('Live data is disabled on this server.')
+    return live.get()
   }
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof WhatIfError) {
       return reply.status(ERROR_STATUS[error.code]).send({ error: error.code, message: error.message })
+    }
+    if (error instanceof LiveUnavailableError) {
+      return reply.status(503).send({ error: 'LIVE_UNAVAILABLE', message: error.message })
     }
     if ((error as { validation?: unknown }).validation) {
       return reply.status(400).send({ error: 'INVALID_INPUT', message: (error as Error).message })
@@ -67,78 +61,47 @@ export async function buildApp({ engine, published, missed }: AppDeps, options: 
     return reply.status(500).send({ error: 'INTERNAL', message: 'Something went wrong' })
   })
 
-  app.get('/api/epoch', async () => summary)
+  app.get<DataQuery>('/api/epoch', async request => {
+    const ds = await pick(request.query)
+    return { ...ds.summary, kind: ds.kind, fetchedAt: ds.fetchedAt }
+  })
 
-  const league = buildLeague(baseline, engine)
-  app.get('/api/league', async () => league)
+  app.get('/api/live/status', async () => (live ? live.status() : { state: 'disabled' }))
 
-  app.get<{ Params: { vote: string } }>('/api/validator/:vote', async (request, reply) => {
+  app.get<DataQuery>('/api/league', async request => (await pick(request.query)).league)
+
+  app.get<DataQuery & { Params: { vote: string } }>('/api/validator/:vote', async (request, reply) => {
+    const ds = await pick(request.query)
     const vote = request.params.vote.trim()
-    const p = publishedByVote.get(vote)
-    const r = replayed.get(vote)
-    if (!p || !r) {
+    const view = ds.validator(vote)
+    if (!view) {
       return reply.status(404).send({
         error: 'UNKNOWN_VALIDATOR',
-        message: `Vote account ${vote} was not scored in Marinade's epoch ${summary.epoch} auction.`,
+        message: `Vote account ${vote} was not scored in Marinade's epoch ${ds.epoch} auction.`,
       })
     }
-    const stakeSol = p.auctionStake.marinadeSamTargetSol
-    return {
-      voteAccount: p.voteAccount,
-      country: p.country,
-      aso: p.aso,
-      samEligible: p.samEligible,
-      ineligibleReasons: p.samEligible ? [] : explain(r),
-      hasBondAccount: p.bondBalanceSol !== null,
-      bondBalanceSol: p.bondBalanceSol,
-      bidCpmpe: p.bidCpmpe,
-      maxStakeWantedSol: p.maxStakeWanted,
-      totalActivatedStakeSol: p.totalActivatedStakeSol,
-      marinadeActivatedStakeSol: p.marinadeActivatedStakeSol,
-      revShare: {
-        totalPmpe: p.revShare.totalPmpe,
-        inflationPmpe: p.revShare.inflationPmpe,
-        mevPmpe: p.revShare.mevPmpe,
-        bidPmpe: p.revShare.bidPmpe,
-        auctionEffectiveBidPmpe: p.revShare.auctionEffectiveBidPmpe,
-      },
-      stakeSol,
-      constraint: p.lastCapConstraint?.constraintType ?? null,
-      bidCostSolPerEpoch: (stakeSol * p.revShare.auctionEffectiveBidPmpe) / 1000,
-      minBondPmpe: p.minBondPmpe,
-      idealBondPmpe: p.idealBondPmpe,
-      bondGoodForNEpochs: p.bondGoodForNEpochs,
-      bondSamHealth: p.bondSamHealth,
-      unprotectedStakeSol: p.unprotectedStakeSol,
-      auction,
-    }
+    return view
   })
 
-  // A plan is several auction replays (~1-3 s); keep it per vote.
-  const plans = new Map<string, Promise<ActionPlan>>()
-  app.get<{ Params: { vote: string } }>('/api/plan/:vote', async request => {
-    const vote = request.params.vote.trim()
-    if (!engine.hasValidator(vote)) {
-      throw new WhatIfError('UNKNOWN_VALIDATOR', `Vote account ${vote} was not scored in this auction.`)
-    }
-    let plan = plans.get(vote)
-    if (!plan) {
-      plan = buildActionPlan(engine, vote)
-      plan.catch(() => plans.delete(vote))
-      plans.set(vote, plan)
-    }
-    return plan
+  app.get<DataQuery & { Params: { vote: string } }>('/api/plan/:vote', async request => {
+    const ds = await pick(request.query)
+    return ds.plan(request.params.vote.trim())
   })
 
-  app.get('/api/missed', async () => {
-    const list = await missed
+  app.get<DataQuery>('/api/missed', async request => {
+    const list = await (await pick(request.query)).missed()
     return { ...list, count: list.validators.length }
   })
 
-  app.post<{ Body: WhatIfInput }>('/api/whatif', { schema: { body: whatIfBodySchema } }, async request => {
-    const { vote, bondSol, bidCpmpe, maxStakeWantedSol } = request.body
-    return engine.whatIf({ vote: vote.trim(), bondSol, bidCpmpe, maxStakeWantedSol })
-  })
+  app.post<DataQuery & { Body: WhatIfInput }>(
+    '/api/whatif',
+    { schema: { body: whatIfBodySchema } },
+    async request => {
+      const ds = await pick(request.query)
+      const { vote, bondSol, bidCpmpe, maxStakeWantedSol } = request.body
+      return ds.engine.whatIf({ vote: vote.trim(), bondSol, bidCpmpe, maxStakeWantedSol })
+    },
+  )
 
   return app
 }

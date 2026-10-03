@@ -41,6 +41,17 @@ Later (until 2026-10-12) we may extend it for Colosseum. Build only section 2 no
    fills epochs a validator missed with zeros (ds-sam `extractAuctionHistoryStats`), so presence is checked in
    the raw file; a validator absent from the previous auction shows "—". For 1048 all 217 eligible have a 1047 entry.
 
+7. **Live data** (done) — epoch switch in the UI: "Epoch 1048 (offline)" (default) and "Live (current epoch)".
+   Same check as Marinade's `ds-sam-pipeline/.github/workflows/schedule-auction.yml`: Solana RPC `getEpochInfo`
+   (`SOLANA_RPC_URL`, default `https://api.mainnet-beta.solana.com`); fetch only when no cached run exists for
+   that Solana epoch and `slotIndex >= 30000`. Fetch = ds-sam's own `loadSamConfig()` +
+   `DsSamSDK({inputsSource: APIS, cacheInputs: true, inputsCacheDirPath})` (what the CLI does with
+   `--inputs-source APIS --cache-inputs`) into `server/.cache/live/<epoch>.<slot>/inputs/`; newest two kept.
+   Then the same engine runs on those files. Nothing live is fetched until someone selects Live; afterwards the
+   server re-checks hourly. On failure the API answers 503 `LIVE_UNAVAILABLE` and the UI falls back to 1048 with
+   the message. The live missed-stake list is computed on first request (blocks ~30 s) and cached in the run folder.
+   `LIVE=off` disables live entirely.
+
 ### Out of scope (do NOT build now)
 Jito, SFDP, other pools · Telegram alerts · badges · user accounts, login, payments ·
 live epoch updates · net-revenue / profit estimates (we only show stake and bid cost, see §6).
@@ -209,6 +220,8 @@ Plain, clean UI. Mobile-friendly. No dark patterns, no wallet buttons.
   - `GET /api/validator/:vote` → fields from `results.json`
   - `GET /api/missed` → bond-short list (precomputed at startup or by a script)
   - `POST /api/whatif {vote, bondSol?, bidCpmpe?, maxStakeWantedSol?}` → `{stakeSol, constraint, bidCostSolPerEpoch, winningTotalPmpe, bond{...}}`
+  - All GET endpoints and `POST /api/whatif` take `?data=live` for the live epoch (default: epoch 1048 files);
+    `GET /api/live/status` → `{state: idle|loading|ready|error|disabled, epoch, auctionId, fetchedAt, error}` (extension 7)
   - `GET /api/league` → `{epoch, previousEpoch, winningTotalPmpe, rows[{rank, voteAccount, totalPmpe, stakeSol, bondBalanceSol, constraint, previous, totalPmpeDelta, stakeDeltaSol}]}` (extension 6)
   - `GET /api/plan/:vote` → `{moves[{kind, sentence, input, stakeGainSol, constraint, capitalLockedSol, costPerEpochDeltaSol, rankedBy, stakePerSol}], note}` (extension 5)
 - Frontend: Vite + React. One page app, screens A and B.
@@ -231,6 +244,11 @@ Extensions:
 
 7. League: 217 rows, ranked by totalPmpe, values equal published results, 64 with stake; deltas equal
    1048 − 1047 from `inputs/auctions.json`. (automated, server/test/league.test.ts)
+
+8. Live data: offline tests (server/test/live.test.ts) — one fetch per epoch, disk cache reused after restart,
+   no fetch before slot 30,000, cached data served if the epoch check fails, clear 503 + fallback to 1048.
+   Network test `npm run test:live` — the live run completes with winners > 0 and winningTotalPmpe > 0.
+   `npm test` stays offline.
 
 ## 10. Demo script (for the pitch)
 

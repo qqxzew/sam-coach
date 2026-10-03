@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { buildApp } from '../src/app.js'
+import { createDataset } from '../src/dataset.js'
 import { eligibilityExplainer } from '../src/eligibility.js'
 import { AuctionEngine } from '../src/engine.js'
 import { loadOrComputeMissed, missedCachePath } from '../src/missed.js'
@@ -20,7 +21,8 @@ const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sam-coach-'))
 let app: Awaited<ReturnType<typeof buildApp>>
 
 beforeAll(async () => {
-  app = await buildApp({ engine, published, missed: loadOrComputeMissed(engine, published, engine.auctionId, cacheDir) })
+  const missed = loadOrComputeMissed(engine, published, engine.auctionId, cacheDir)
+  app = await buildApp({ offline: await createDataset({ kind: 'offline', engine, results: published, missed: () => missed }) })
 })
 afterAll(async () => {
   await app.close()
@@ -49,6 +51,16 @@ describe('GET /api/epoch', () => {
     expect(s.marinadeSamStakeSol).toBeCloseTo(5_972_789.653, 2)
     expect(s.medianWinnerStakeSol).toBeGreaterThan(40_000)
     expect(s.medianWinnerStakeSol).toBeLessThan(60_000)
+  })
+})
+
+describe('live data switch', () => {
+  it('answers 503 LIVE_UNAVAILABLE when live is disabled, and 1048 still works', async () => {
+    const res = await app.inject('/api/epoch?data=live')
+    expect(res.statusCode).toBe(503)
+    expect(res.json()).toMatchObject({ error: 'LIVE_UNAVAILABLE' })
+    const offline = await app.inject('/api/epoch')
+    expect(offline.json()).toMatchObject({ epoch: 1048, kind: 'offline' })
   })
 })
 

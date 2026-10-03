@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 
+import { DataProvider, EpochSwitch, useData } from './data'
 import { Home } from './pages/Home'
 import { League } from './pages/League'
 import { ValidatorPage } from './pages/Validator'
 
-// Hash routes keep the app a single static page: #/ and #/v/<vote>.
+// Hash routes keep the app a single static page: #/, #/league and #/v/<vote>.
 function useRoute(): string {
   const [hash, setHash] = useState(window.location.hash)
   useEffect(() => {
@@ -21,9 +22,18 @@ function useRoute(): string {
 export const validatorHref = (vote: string) => `#/v/${encodeURIComponent(vote.trim())}`
 
 export function App() {
+  return (
+    <DataProvider>
+      <Shell />
+    </DataProvider>
+  )
+}
+
+function Shell() {
   const route = useRoute()
   const match = route.match(/^\/v\/(.+)$/)
   const vote = match ? decodeURIComponent(match[1]) : null
+  const { kind, epoch, notice, dismiss } = useData()
 
   return (
     <div className="shell">
@@ -46,7 +56,22 @@ export function App() {
         </nav>
       </header>
 
-      <main>
+      <div className="data-bar">
+        <EpochSwitch />
+        {kind === 'live' && <span className="live-dot">Live data · epoch {epoch}</span>}
+      </div>
+
+      {notice && (
+        <div className="notice notice-error notice-bar" role="alert">
+          <span>{notice}</span>
+          <button type="button" className="notice-close" onClick={dismiss} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Remount pages when the data source changes so every number is re-fetched for it. */}
+      <main key={kind}>
         {vote ? <ValidatorPage key={vote} vote={vote} /> : route === '/league' ? <League /> : <Home />}
       </main>
 
@@ -55,7 +80,8 @@ export function App() {
         <a href="https://github.com/marinade-finance/ds-sam" target="_blank" rel="noreferrer">
           ds-sam
         </a>
-        ) on epoch 1048 inputs. Read-only public data. No wallets, no transactions.
+        ) on epoch {epoch ?? ''} inputs{kind === 'live' ? ', fetched live by ds-sam from Marinade APIs' : ''}.
+        Read-only public data. No wallets, no transactions.
       </footer>
     </div>
   )

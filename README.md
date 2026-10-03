@@ -18,7 +18,13 @@ npm start            # http://127.0.0.1:3001 — API + UI, works offline
 
 Development: `npm run dev:server` (API on 3001) and `npm run dev:web` (Vite on 5173, proxies `/api`).
 
-Tests: `npm test` (replay matches published results, §9 what-if numbers, all 676 validator pages, missed list).
+Tests: `npm test` (offline: replay matches published results, §9 what-if numbers, all 676 validator pages,
+missed list, action plan, league, live-data plumbing). `npm run test:live` needs internet: fetches the current
+epoch with ds-sam and checks the auction result is sane.
+
+Live data: the UI switch "Live (current epoch)" makes the server fetch the current epoch's inputs with ds-sam
+(once per epoch, cached in `server/.cache/live/`). Epoch 1048 stays the default and needs no internet.
+Set `LIVE=off` to disable live data, `SOLANA_RPC_URL` to use another RPC for the epoch check.
 
 ## Layout
 

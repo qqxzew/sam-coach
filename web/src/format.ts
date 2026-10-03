@@ -11,8 +11,6 @@ export const fmtPmpe = (n: number) => n.toFixed(4)
 
 export const shortVote = (vote: string) => `${vote.slice(0, 6)}…${vote.slice(-4)}`
 
-export const ESTIMATE_LABEL = 'Estimate, based on epoch 1048 auction replay'
-
 /** CLAUDE.md §7: binding constraint in plain words. */
 export function constraintText(
   constraint: string | null,

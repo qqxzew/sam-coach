@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../api'
 import { validatorHref } from '../App'
-import { ESTIMATE_LABEL, fmtSol, fmtSol2, shortVote } from '../format'
+import { useEstimateLabel } from '../data'
+import { fmtSol, fmtSol2, shortVote } from '../format'
 
 import type { EpochSummary, MissedList } from '../api'
 
@@ -10,6 +11,7 @@ export function Home() {
   const [summary, setSummary] = useState<EpochSummary | null>(null)
   const [missed, setMissed] = useState<MissedList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const estimateLabel = useEstimateLabel()
 
   useEffect(() => {
     api.epoch().then(setSummary, e => setError(e.message))
@@ -19,7 +21,10 @@ export function Home() {
   return (
     <>
       <section className="hero">
-        <p className="eyebrow">Marinade SAM · epoch {summary?.epoch ?? 1048}</p>
+        <p className="eyebrow">
+          Marinade SAM · epoch {summary?.epoch ?? '…'}
+          {summary?.kind === 'live' && ' · live'}
+        </p>
         <h1 className="headline">
           {summary ? (
             <>
@@ -27,7 +32,7 @@ export function Home() {
               <span className="nowrap">0 stake</span> because of the bond.
             </>
           ) : (
-            <span className="skeleton-text">Loading epoch {1048}…</span>
+            <span className="skeleton-text">Loading the auction…</span>
           )}
         </h1>
         {summary && (
@@ -54,7 +59,7 @@ export function Home() {
         {missed ? <MissedTable list={missed} /> : !error && <TableSkeleton />}
 
         <p className="fine-print">
-          {ESTIMATE_LABEL}. Each row re-runs the auction with only that validator's bond changed; if several
+          {estimateLabel}. Each row re-runs the auction with only that validator's bond changed; if several
           validators top up at once they compete for the same stake.
         </p>
       </section>
