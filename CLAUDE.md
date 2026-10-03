@@ -33,8 +33,16 @@ Later (until 2026-10-12) we may extend it for Colosseum. Build only section 2 no
    `bondCap`), inverted by bisection — a closed form is wrong when unprotected stake is not saturated or in
    the 5.6–7 SOL hysteresis band.
 
+6. **League** (screen C, `#/league`, done) — all SAM-eligible validators ranked by value delivered to stakers
+   = `revShare.totalPmpe`; also stake won, bond balance, binding constraint. Sortable, searchable, rows link to B.
+   "Most improved" = Δ totalPmpe (and Δ stake) vs the previous epoch, taken from `inputs/auctions.json`
+   (Marinade scoring API history, the same data ds-sam reads; epochs 1044–1047, fields `voteAccount`, `epoch`,
+   `revShare.totalPmpe`, `marinadeSamTargetSol`). Note: the per-validator `auctions` field in `results.json`
+   fills epochs a validator missed with zeros (ds-sam `extractAuctionHistoryStats`), so presence is checked in
+   the raw file; a validator absent from the previous auction shows "—". For 1048 all 217 eligible have a 1047 entry.
+
 ### Out of scope (do NOT build now)
-Jito, SFDP, other pools · Telegram alerts · League / badges · user accounts, login, payments ·
+Jito, SFDP, other pools · Telegram alerts · badges · user accounts, login, payments ·
 live epoch updates · net-revenue / profit estimates (we only show stake and bid cost, see §6).
 
 ### Hard rules
@@ -201,6 +209,7 @@ Plain, clean UI. Mobile-friendly. No dark patterns, no wallet buttons.
   - `GET /api/validator/:vote` → fields from `results.json`
   - `GET /api/missed` → bond-short list (precomputed at startup or by a script)
   - `POST /api/whatif {vote, bondSol?, bidCpmpe?, maxStakeWantedSol?}` → `{stakeSol, constraint, bidCostSolPerEpoch, winningTotalPmpe, bond{...}}`
+  - `GET /api/league` → `{epoch, previousEpoch, winningTotalPmpe, rows[{rank, voteAccount, totalPmpe, stakeSol, bondBalanceSol, constraint, previous, totalPmpeDelta, stakeDeltaSol}]}` (extension 6)
   - `GET /api/plan/:vote` → `{moves[{kind, sentence, input, stakeGainSol, constraint, capitalLockedSol, costPerEpochDeltaSol, rankedBy, stakePerSol}], note}` (extension 5)
 - Frontend: Vite + React. One page app, screens A and B.
 - Run locally; deploy later. Team dev machines are Windows (PowerShell): avoid bash-only steps in the app itself; the bash script above is a reference only.
@@ -219,6 +228,9 @@ Extensions:
    49DJ plan has "Top up bond by 7.00 SOL → +24,239 SOL stake" and a bond move after which BOND no longer binds;
    a WANT-capped winner gets a want move; an offer below clearing gets a bid move that clears it;
    ≤ 5 moves, all with gain ≥ 1 SOL, sorted by stake per own SOL. (automated, server/test/plan.test.ts)
+
+7. League: 217 rows, ranked by totalPmpe, values equal published results, 64 with stake; deltas equal
+   1048 − 1047 from `inputs/auctions.json`. (automated, server/test/league.test.ts)
 
 ## 10. Demo script (for the pitch)
 

@@ -52,6 +52,17 @@ describe('GET /api/epoch', () => {
   })
 })
 
+describe('GET /api/league', () => {
+  it('returns 217 ranked rows with the previous-epoch comparison', async () => {
+    const res = await app.inject('/api/league')
+    expect(res.statusCode).toBe(200)
+    const league = res.json()
+    expect(league.rows).toHaveLength(217)
+    expect(league.rows[0]).toMatchObject({ rank: 1 })
+    expect(league.previousEpoch).toBe(1047)
+  })
+})
+
 describe('GET /api/validator/:vote (§9.4)', () => {
   it('answers 200 for every one of the 676 vote accounts', async () => {
     const failures: string[] = []

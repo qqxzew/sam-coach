@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { Home } from './pages/Home'
+import { League } from './pages/League'
 import { ValidatorPage } from './pages/Validator'
 
 // Hash routes keep the app a single static page: #/ and #/v/<vote>.
@@ -35,10 +36,19 @@ export function App() {
           </span>
           SAM Coach
         </a>
-        <span className="masthead-note">Marinade Stake Auction · epoch 1048</span>
+        <nav className="nav" aria-label="Main">
+          <a href="#/" aria-current={route === '/' ? 'page' : undefined}>
+            Missed stake
+          </a>
+          <a href="#/league" aria-current={route === '/league' ? 'page' : undefined}>
+            League
+          </a>
+        </nav>
       </header>
 
-      <main>{vote ? <ValidatorPage key={vote} vote={vote} /> : <Home />}</main>
+      <main>
+        {vote ? <ValidatorPage key={vote} vote={vote} /> : route === '/league' ? <League /> : <Home />}
+      </main>
 
       <footer className="colophon">
         Estimate. Replay of Marinade's own auction code (

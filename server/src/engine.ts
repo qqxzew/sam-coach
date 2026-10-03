@@ -144,6 +144,18 @@ export class AuctionEngine {
     return this.source.validators.validators.some(v => v.vote_account === vote)
   }
 
+  /**
+   * Previous auctions as published by Marinade's scoring API (inputs/auctions.json, the same history ds-sam reads).
+   * A validator absent from an epoch has no entry; ds-sam's per-validator `auctions` field fills such gaps with zeros.
+   */
+  history(epoch: number): Map<string, { totalPmpe: number; marinadeSamTargetSol: number }> {
+    return new Map(
+      this.source.auctions
+        .filter(a => a.epoch === epoch)
+        .map(a => [a.voteAccount, { totalPmpe: a.revShare.totalPmpe, marinadeSamTargetSol: a.marinadeSamTargetSol }]),
+    )
+  }
+
   hasBondAccount(vote: string): boolean {
     return this.source.bonds.bonds.some(b => b.vote_account === vote)
   }

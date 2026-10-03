@@ -73,6 +73,20 @@ export type Move = {
 
 export type ActionPlan = { vote: string; moves: Move[]; note: string | null }
 
+export type LeagueRow = {
+  rank: number
+  voteAccount: string
+  totalPmpe: number
+  stakeSol: number
+  bondBalanceSol: number | null
+  constraint: string | null
+  previous: { totalPmpe: number; stakeSol: number } | null
+  totalPmpeDelta: number | null
+  stakeDeltaSol: number | null
+}
+
+export type League = { epoch: number; previousEpoch: number; winningTotalPmpe: number; rows: LeagueRow[] }
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -101,6 +115,7 @@ export const api = {
   epoch: () => request<EpochSummary>('/api/epoch'),
   missed: () => request<MissedList>('/api/missed'),
   validator: (vote: string) => request<Validator>(`/api/validator/${encodeURIComponent(vote)}`),
+  league: () => request<League>('/api/league'),
   plan: (vote: string) => request<ActionPlan>(`/api/plan/${encodeURIComponent(vote)}`),
   whatIf: (input: WhatIfInput) =>
     request<WhatIfResult>('/api/whatif', {

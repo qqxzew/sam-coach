@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 
 import { eligibilityExplainer } from './eligibility.js'
 import { WhatIfError } from './engine.js'
+import { buildLeague } from './league.js'
 import { buildActionPlan } from './plan.js'
 import { epochSummary, MIN_BOND_SOL } from './published.js'
 
@@ -67,6 +68,9 @@ export async function buildApp({ engine, published, missed }: AppDeps, options: 
   })
 
   app.get('/api/epoch', async () => summary)
+
+  const league = buildLeague(baseline, engine)
+  app.get('/api/league', async () => league)
 
   app.get<{ Params: { vote: string } }>('/api/validator/:vote', async (request, reply) => {
     const vote = request.params.vote.trim()
