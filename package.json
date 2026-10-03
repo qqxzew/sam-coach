@@ -1,0 +1,14 @@
+{
+  "name": "sam-coach",
+  "private": true,
+  "workspaces": [
+    "server"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "test": "npm test -w server"
+  }
+}
