@@ -29,6 +29,14 @@ Set `LIVE=off` to disable live data, `SOLANA_RPC_URL` to use another RPC for the
 Telegram alerts: copy `.env.example` to `.env` and set `TELEGRAM_BOT_TOKEN` (from @BotFather). Without a token
 the app runs normally without the bot. Commands: `/watch <vote account>`, `/unwatch`, `/status`.
 
+## Deploy
+
+Production: https://samcoach.mrrobot.hackclub.app (Hack Club Nest container, 2 GB RAM, Nest reverse proxy → port 3001).
+`node scripts/deploy.mjs` builds the UI, the missed-stake cache and a ds-sam-sdk bundle (exact versions from ds-sam's
+lockfile) locally, uploads them to `/opt/sam-coach` and starts `deploy/docker-compose.yml`; the server only runs
+`npm ci -w server`. Add `--with-env` to upload the local `.env`. Don't run the bot locally with the same token at the
+same time (Telegram allows one long-polling client).
+
 ## Layout
 
 - `server/src/engine.ts`: loads the epoch inputs once and runs `DsSamSDK` in-process with one `bonds.json` entry changed

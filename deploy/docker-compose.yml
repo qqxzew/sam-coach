@@ -1,0 +1,18 @@
+# Used by scripts/deploy.mjs on the server (/opt/sam-coach). Public URL: Nest reverse proxy
+# (dashboard.hackclub.app → Domains: samcoach.mrrobot.hackclub.app → port 3001).
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "3001:3001"
+    volumes:
+      # live-epoch cache + Telegram subscriptions survive redeploys
+      - cache:/app/server/.cache
+    mem_limit: 1g
+
+volumes:
+  cache:
